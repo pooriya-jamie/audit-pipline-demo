@@ -1,4 +1,4 @@
-# Comparison Project — Web Demo Dashboard
+# Social Media Audit Pipeline — Web Demo Dashboard
 
 A self-contained, single-page visualization of how the **TikTok** and **YouTube** bots work, with a spotlight on the **LLM-as-decision-maker** loop. Built with vanilla HTML, CSS, and JavaScript — no build step, no dependencies beyond Google Fonts.
 
