@@ -2,12 +2,12 @@
  * data.js - Scripted scenarios and prompts for the demo
  * All content is simulated. No API calls are made.
  * Prompts are condensed from the actual TIKTOK_ANALYSIS_PROMPT
- * in TikTok-Web/openai_vision.py.
+ * in TikTok openai_vision.py.
  * ================================================================ */
 
 const PLATFORM_CONFIG = {
   tiktok: {
-    name: "TikTok-Web",
+    name: "TikTok",
     tagline: "LLM as Decision Maker",
     url: "www.tiktok.com/foryou",
     model: "gpt-4o-mini (Vision)",
@@ -26,7 +26,7 @@ const PLATFORM_CONFIG = {
     ],
   },
   youtube: {
-    name: "YouTube-Web",
+    name: "YouTube",
     tagline: "LLM as Describer (not Decider)",
     url: "www.youtube.com/shorts",
     model: "gpt-4o-mini (Vision)",
@@ -680,7 +680,7 @@ const SCENARIOS = {
           description:
             "A fitness instructor demonstrates a 5-minute full-body stretching routine on a yoga mat in a well-lit living room. Bright, energetic tone suitable for a morning wake-up workout.",
         },
-        reasoning: "Description-only (YouTube-Web). No watch/skip decision.",
+        reasoning: "Description-only (YouTube). No watch/skip decision.",
       }),
       v({
         username: "HealthyByDanii",
@@ -694,7 +694,7 @@ const SCENARIOS = {
           description:
             "Creator prepares multiple portioned meals in glass containers on a kitchen counter. Clean cooking aesthetic with rapid jump cuts and on-screen macro counts.",
         },
-        reasoning: "Description-only (YouTube-Web). No watch/skip decision.",
+        reasoning: "Description-only (YouTube). No watch/skip decision.",
       }),
       v({
         username: "TrainWithMax",
@@ -708,7 +708,7 @@ const SCENARIOS = {
           description:
             "Personal trainer speaks to camera in a home gym, whiteboard with training theory visible in the background. Conversational, educational tone.",
         },
-        reasoning: "Description-only (YouTube-Web). No watch/skip decision.",
+        reasoning: "Description-only (YouTube). No watch/skip decision.",
       }),
       v({
         username: "YogaJourneyJen",
@@ -722,7 +722,7 @@ const SCENARIOS = {
           description:
             "Yoga instructor flows through hip-opening poses on a sunlit hardwood floor. Calm instrumental music, follow-along format, soothing tone.",
         },
-        reasoning: "Description-only (YouTube-Web). No watch/skip decision.",
+        reasoning: "Description-only (YouTube). No watch/skip decision.",
       }),
       v({
         username: "RunItRita",
@@ -736,7 +736,7 @@ const SCENARIOS = {
           description:
             "Runner logs an 18-mile long run through city streets, GoPro footage intercut with post-run recovery in kitchen. High-energy, documentary-style vlog.",
         },
-        reasoning: "Description-only (YouTube-Web). No watch/skip decision.",
+        reasoning: "Description-only (YouTube). No watch/skip decision.",
       }),
       v({
         username: "StrongerMei",
@@ -750,7 +750,7 @@ const SCENARIOS = {
           description:
             "Athlete successfully lifts a heavy deadlift in a commercial gym, celebration from training partners in the background. Triumphant mood.",
         },
-        reasoning: "Description-only (YouTube-Web). No watch/skip decision.",
+        reasoning: "Description-only (YouTube). No watch/skip decision.",
       }),
     ],
   },
@@ -774,7 +774,7 @@ const SCENARIOS = {
           description:
             "Comedic skit of a remote worker dramatically reacting to a wifi outage during a video call. Exaggerated expressions and quick cuts.",
         },
-        reasoning: "Description-only (YouTube-Web). No watch/skip decision.",
+        reasoning: "Description-only (YouTube). No watch/skip decision.",
       }),
       v({
         username: "PranksByPablo",
@@ -788,7 +788,7 @@ const SCENARIOS = {
           description:
             "A creator hands a waiter a large tip and films their surprised, emotional reaction in a diner. Heartwarming, uplifting tone.",
         },
-        reasoning: "Description-only (YouTube-Web). No watch/skip decision.",
+        reasoning: "Description-only (YouTube). No watch/skip decision.",
       }),
       v({
         username: "Mimicry.Moe",
@@ -802,7 +802,7 @@ const SCENARIOS = {
           description:
             "Solo performer rapid-fires through ten teacher impressions against a plain wall. Quick costume swaps and dynamic editing.",
         },
-        reasoning: "Description-only (YouTube-Web). No watch/skip decision.",
+        reasoning: "Description-only (YouTube). No watch/skip decision.",
       }),
       v({
         username: "FailArmy",
@@ -816,7 +816,7 @@ const SCENARIOS = {
           description:
             "Fast-cut compilation of amateur skateboarders wiping out in parks and streets. Loud upbeat music, lighthearted framing.",
         },
-        reasoning: "Description-only (YouTube-Web). No watch/skip decision.",
+        reasoning: "Description-only (YouTube). No watch/skip decision.",
       }),
       v({
         username: "StoryTimeSteph",
@@ -830,7 +830,7 @@ const SCENARIOS = {
           description:
             "Creator speaks directly to camera in car selfie angle telling an animated story, engaging and conversational delivery.",
         },
-        reasoning: "Description-only (YouTube-Web). No watch/skip decision.",
+        reasoning: "Description-only (YouTube). No watch/skip decision.",
       }),
       v({
         username: "KidSaysWhat",
@@ -844,7 +844,7 @@ const SCENARIOS = {
           description:
             "Interviewer asks young children thoughtful questions at a playground, cutting to their earnest and hilarious answers.",
         },
-        reasoning: "Description-only (YouTube-Web). No watch/skip decision.",
+        reasoning: "Description-only (YouTube). No watch/skip decision.",
       }),
     ],
   },

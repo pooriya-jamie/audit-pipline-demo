@@ -191,7 +191,7 @@ else:  # not_interested
     else:             WATCH_NON_MH (+25s)`;
 
   const YOUTUBE_LOGIC_SNIPPET =
-`# YouTube-Web: LLM only describes,
+`# YouTube: LLM only describes,
 # no watch/skip decision is made.
 watch_duration = random.uniform(8, 12)`;
 
