@@ -30,18 +30,18 @@
       </div>
       <div class="brand-text">
         <div class="brand-title">Social Media Audit Pipeline</div>
-        <div class="brand-sub" id="tagline">LLM as Decision Maker — Web Edition</div>
+        <div class="brand-sub" id="tagline">LLM as Decision Maker</div>
       </div>
     </div>
 
     <div class="platform-toggle" role="tablist" aria-label="Platform">
       <button class="platform-btn active" data-platform="tiktok" role="tab" aria-selected="true">
         <span class="dot dot-tiktok"></span>
-        TikTok
+        tiktok
       </button>
       <button class="platform-btn" data-platform="youtube" role="tab" aria-selected="false">
         <span class="dot dot-youtube"></span>
-        YouTube
+        youtube
       </button>
     </div>
 
@@ -60,6 +60,7 @@
       </label>
 
       <div class="speed-group" role="group" aria-label="Playback speed">
+        <button class="speed-btn" data-speed="0.5">0.5×</button>
         <button class="speed-btn" data-speed="1">1×</button>
         <button class="speed-btn active" data-speed="2">2×</button>
         <button class="speed-btn" data-speed="4">4×</button>
@@ -88,7 +89,7 @@
       <div class="panel-header">
         <div class="panel-title">
           <span class="panel-step">01</span>
-          Browser — Selenium WebDriver
+          Browser
         </div>
         <div class="session-meta">
           <span class="tag tag-live" id="sessionStatusTag">● idle</span>
@@ -149,7 +150,7 @@
         </div>
 
         <div class="browser-footer">
-          <span class="code-tag">simple_launcher.py · for_you_feed_phase()</span>
+          <span class="code-tag">feed loop · watch &amp; scroll controller</span>
           <span class="muted" id="browserHint">waiting to start…</span>
         </div>
       </div>
@@ -208,7 +209,7 @@
           <div class="code-block">
             <div class="code-toolbar">
               <span class="code-chip">system + user · image</span>
-              <span class="muted" id="promptFileTag">openai_vision.py · TIKTOK_ANALYSIS_PROMPT</span>
+              <span class="muted" id="promptFileTag">vision prompt · content analysis</span>
             </div>
             <pre class="code" id="promptCode"></pre>
             <div class="typing-caret" id="typingCaret"></div>
@@ -238,7 +239,7 @@
             </div>
             <div class="decision-reasoning" id="decReasoning">Decision rationale will appear here after classification.</div>
             <div class="decision-logic">
-              <div class="logic-title">Decision rule <span class="muted">(simple_launcher.py)</span></div>
+              <div class="logic-title">Decision rule</div>
               <pre class="logic-code" id="logicCode"></pre>
             </div>
           </div>

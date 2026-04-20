@@ -1,8 +1,8 @@
 /* ================================================================
  * app.js — DemoEngine
- * Pure vanilla JS. Drives a 6-step pipeline animation that mirrors
- * simple_launcher.py / simple_watch_YT.py. All data comes from
- * data.js. No real API calls are made.
+ * Pure vanilla JS. Drives a 6-step pipeline animation that visualises
+ * an LLM-driven social-media audit loop. All data comes from data.js.
+ * No real API calls are made.
  * ================================================================ */
 
 (function () {
@@ -131,26 +131,56 @@
 
   function stepSub(id) {
     const platform = state.platform;
-    if (id === "navigate")   return platform === "tiktok" ? "driver.execute_script(scroll)" : "ActionChains.send_keys(ARROW_DOWN)";
-    if (id === "initial")    return `watch ${cfg().initialWatch}s initial window`;
-    if (id === "screenshot") return "snapshot_element() → PNG";
-    if (id === "llm")        return "openai_vision.analyze_image()";
-    if (id === "decision")   return platform === "tiktok" ? "if mental_health_relevance…" : "description only";
-    if (id === "execute")    return platform === "tiktok" ? "rand_sleep(skip) | rand_sleep(full)" : "rand_sleep(fixed)";
+    if (id === "navigate")   return platform === "tiktok" ? "scroll to next video" : "press ↓ to next short";
+    if (id === "initial")    return `watch ${cfg().initialWatch}s — screenshot + LLM run in parallel`;
+    if (id === "screenshot") return "capture frame → image (during initial watch)";
+    if (id === "llm")        return "send to vision LLM (during initial watch)";
+    if (id === "decision")   return platform === "tiktok" ? "if mental-health relevant…" : "description only";
+    if (id === "execute")    return platform === "tiktok" ? "short skip | additional watch" : "fixed watch window";
     return "";
   }
 
-  function setStep(idx) {
+  /**
+   * Set current pipeline step.
+   *  - Default: mark earlier steps as done, idx as running, rest idle.
+   *  - { parallel: true }: just mark idx as running WITHOUT demoting other
+   *    currently-active steps (used when sub-steps run during Initial Watch).
+   */
+  function setStep(idx, { parallel = false } = {}) {
     const stepper = $("#stepper");
-    $$(".step", stepper).forEach((node, i) => {
-      node.classList.remove("active", "done");
-      $(".step-status", node).textContent = i < idx ? "done" : (i === idx ? "running" : "idle");
-      if (i < idx) node.classList.add("done");
-      if (i === idx) node.classList.add("active");
-    });
+    const steps = $$(".step", stepper);
+    if (parallel) {
+      if (idx >= 0 && idx < steps.length) {
+        const node = steps[idx];
+        node.classList.add("active");
+        node.classList.remove("done");
+        $(".step-status", node).textContent = "running";
+      }
+    } else {
+      steps.forEach((node, i) => {
+        node.classList.remove("active", "done");
+        if (i < idx) {
+          node.classList.add("done");
+          $(".step-status", node).textContent = "done";
+        } else if (i === idx) {
+          node.classList.add("active");
+          $(".step-status", node).textContent = "running";
+        } else {
+          $(".step-status", node).textContent = "idle";
+        }
+      });
+    }
     state.currentStepIdx = idx;
     const stepObj = cfg().steps[idx];
-    $("#currentStepTag").textContent = stepObj ? stepObj.label : "—";
+    if (stepObj) $("#currentStepTag").textContent = stepObj.label;
+  }
+
+  function markStepDone(idx) {
+    const node = $$(".step", $("#stepper"))[idx];
+    if (!node) return;
+    node.classList.remove("active");
+    node.classList.add("done");
+    $(".step-status", node).textContent = "done";
   }
 
   /* ========== platform theme ========== */
@@ -163,11 +193,11 @@
       : "YouTube — Shorts";
     $("#addressUrl").textContent = c.url;
     $("#watchWindowVal").textContent = c.useLLMDecision
-      ? `${c.initialWatch}s → ${c.fullWatch}s or ${c.skipDuration}s`
-      : `${c.initialWatch}s load → ${c.fullWatch}s fixed`;
+      ? `${c.initialWatch}s (LLM in parallel) → +${c.fullWatch}s or +${c.skipDuration}s`
+      : `${c.initialWatch}s (LLM in parallel) → +${c.fullWatch}s fixed`;
     $("#promptFileTag").textContent = state.platform === "tiktok"
-      ? "openai_vision.py · TIKTOK_ANALYSIS_PROMPT"
-      : "simple_watch_YT.py · YOUTUBE_DESCRIPTION_PROMPT";
+      ? "vision prompt · content analysis"
+      : "vision prompt · short description";
 
     // hide persona when platform doesn't use LLM decisions
     $("#personaSelectWrap").style.display = c.useLLMDecision ? "" : "none";
@@ -191,7 +221,7 @@ else:  # not_interested
     else:             WATCH_NON_MH (+25s)`;
 
   const YOUTUBE_LOGIC_SNIPPET =
-`# YouTube: LLM only describes,
+`# youtube: LLM only describes,
 # no watch/skip decision is made.
 watch_duration = random.uniform(8, 12)`;
 
@@ -289,11 +319,11 @@ watch_duration = random.uniform(8, 12)`;
     const persona = state.persona;
 
     if (persona === "interested") {
-      if (mh) return { key: "WATCH_FULL",  badgeClass: "watch-full", label: "WATCH_FULL",  watchSec: c.initialWatch + c.fullWatch,  action: `rand_sleep(${c.fullWatch}s) additional` };
-      return     { key: "SKIP",        badgeClass: "skip",       label: "SKIP",        watchSec: c.initialWatch + c.skipDuration, action: `rand_sleep(${c.skipDuration}s) then scroll` };
+      if (mh) return { key: "WATCH_FULL",  badgeClass: "watch-full", label: "WATCH_FULL",  watchSec: c.initialWatch + c.fullWatch,  action: `watch additional ${c.fullWatch}s` };
+      return     { key: "SKIP",        badgeClass: "skip",       label: "SKIP",        watchSec: c.initialWatch + c.skipDuration, action: `pause ${c.skipDuration}s then scroll` };
     } else {
-      if (mh) return { key: "SKIP_MENTAL_HEALTH",          badgeClass: "skip-mh",   label: "SKIP_MH",     watchSec: c.initialWatch + c.skipDuration, action: `rand_sleep(${c.skipDuration}s) then scroll` };
-      return     { key: "WATCH_FULL_NON_MENTAL_HEALTH",  badgeClass: "watch-nm",  label: "WATCH_NON_MH",watchSec: c.initialWatch + c.fullWatch,  action: `rand_sleep(${c.fullWatch}s) additional` };
+      if (mh) return { key: "SKIP_MENTAL_HEALTH",          badgeClass: "skip-mh",   label: "SKIP_MH",     watchSec: c.initialWatch + c.skipDuration, action: `pause ${c.skipDuration}s then scroll` };
+      return     { key: "WATCH_FULL_NON_MENTAL_HEALTH",  badgeClass: "watch-nm",  label: "WATCH_NON_MH",watchSec: c.initialWatch + c.fullWatch,  action: `watch additional ${c.fullWatch}s` };
     }
   }
 
@@ -450,18 +480,8 @@ watch_duration = random.uniform(8, 12)`;
       $("#videoCounterTag").textContent = `${state.index + 1} / ${state.videos.length}`;
       $("#browserHint").textContent = `processing video ${state.index + 1}/${state.videos.length}`;
 
-      await step_navigate(v);
-      if (!state.running) break;
-      await step_initialWatch(v);
-      if (!state.running) break;
-      await step_screenshot(v);
-      if (!state.running) break;
-      await step_sendToLLM(v);
-      if (!state.running) break;
-      const decision = await step_decision(v);
-      if (!state.running) break;
-      await step_execute(v, decision);
-      if (!state.running) break;
+      const decision = await processVideo(v);
+      if (!state.running || decision == null) break;
 
       commitDecision(v, decision);
       state.index += 1;
@@ -485,6 +505,50 @@ watch_duration = random.uniform(8, 12)`;
 
   /* ========== steps ========== */
 
+  /**
+   * Process one video end-to-end, matching the real launcher logic:
+   *   1) Navigate
+   *   2) Initial watch (e.g. 8s) — DURING this window, screenshot + LLM + decision run in parallel
+   *   3) After the initial watch ends AND decision is ready, execute the result
+   *      (additional ~25s watch, or short ~0.5s skip)
+   */
+  async function processVideo(v) {
+    await step_navigate(v);
+    if (!state.running) return null;
+
+    const c = cfg();
+
+    // Mark Initial Watch as running and start the timer in the background.
+    setStep(1);
+    log("info", c.useLLMDecision
+      ? `Initial watch window opened (${c.initialWatch}s) — screenshot + LLM + decision run in parallel`
+      : `Short loaded — capturing screenshot while fixed watch timer runs`);
+
+    const initialWatchPromise = runWatchTimer(c.initialWatch, null);
+
+    // Run screenshot → LLM → decision CONCURRENTLY with the initial watch.
+    // We pass parallel:true so these don't demote the Initial Watch step.
+    await step_screenshot(v, { parallel: true });
+    if (!state.running) { await initialWatchPromise; return null; }
+    await step_sendToLLM(v, { parallel: true });
+    if (!state.running) { await initialWatchPromise; return null; }
+    const decision = await step_decision(v, { parallel: true });
+    if (!state.running) { await initialWatchPromise; return null; }
+
+    // Wait for the full initial watch window to elapse (in practice, decision
+    // usually finishes first, so we wait the remainder of the 8s window here).
+    await initialWatchPromise;
+    markStepDone(1);
+    markStepDone(2);
+    markStepDone(3);
+    markStepDone(4);
+    if (!state.running) return null;
+
+    // Now execute: additional watch (25s) or short skip (0.5s).
+    await step_execute(v, decision);
+    return state.running ? decision : null;
+  }
+
   async function step_navigate(v) {
     setStep(0);
     log("navigate", state.index === 0
@@ -496,28 +560,19 @@ watch_duration = random.uniform(8, 12)`;
     $("#scrollHint").classList.remove("visible");
   }
 
-  async function step_initialWatch(v) {
-    setStep(1);
-    const c = cfg();
-    log("info", c.useLLMDecision
-      ? `Initial watch window: ${c.initialWatch}s (capturing ${5} screenshots)`
-      : `Loading Short and capturing screenshots…`);
-    await runWatchTimer(c.initialWatch, null);
-  }
-
-  async function step_screenshot(v) {
-    setStep(2);
-    log("info", `snapshot_element() → screenshot_${Date.now()}.png`);
+  async function step_screenshot(v, { parallel = false } = {}) {
+    setStep(2, { parallel });
+    log("info", `Captured frame → screenshot_${Date.now()}.png`);
     cameraFlash();
     await wait(500);
   }
 
-  async function step_sendToLLM(v) {
-    setStep(3);
+  async function step_sendToLLM(v, { parallel = false } = {}) {
+    setStep(3, { parallel });
     $("#brainPulse").classList.add("thinking");
     $("#responseStatusChip").textContent = "posting image…";
 
-    log("llm", `Sending screenshot to OpenAI (gpt-4o-mini Vision)…`);
+    log("llm", `Sending screenshot to Vision LLM (gpt-4o-mini)…`);
 
     // Kick off plane animation
     showLLMTab("prompt");
@@ -532,8 +587,8 @@ watch_duration = random.uniform(8, 12)`;
     await wait(250);
   }
 
-  async function step_decision(v) {
-    setStep(4);
+  async function step_decision(v, { parallel = false } = {}) {
+    setStep(4, { parallel });
     $("#responseStatusChip").textContent = "streaming JSON…";
     showLLMTab("response");
 
@@ -593,8 +648,10 @@ watch_duration = random.uniform(8, 12)`;
       ? `Executing ${decision.label}: additional ${extraSec}s before scroll`
       : `Executing fixed watch: ${c.fullWatch}s total`);
 
-    // Run a compressed watch timer (scaled to feel like the extra watch)
-    const shownSec = Math.max(0.6, Math.min(extraSec, 5));  // cap visible time
+    // Run a compressed watch timer (scaled to feel like the extra watch).
+    // Cap long watches at 10s so the visual difference between
+    // WATCH_FULL (+25s real) and SKIP (+0.5s real) is obvious.
+    const shownSec = Math.max(0.6, Math.min(extraSec, 10));
     await runWatchTimer(shownSec);
   }
 
@@ -678,14 +735,11 @@ watch_duration = random.uniform(8, 12)`;
     $("#videoCounterTag").textContent = `${state.index + 1} / ${state.videos.length}`;
     state.running = true;
     try {
-      await step_navigate(v);
-      await step_initialWatch(v);
-      await step_screenshot(v);
-      await step_sendToLLM(v);
-      const decision = await step_decision(v);
-      await step_execute(v, decision);
-      commitDecision(v, decision);
-      state.index += 1;
+      const decision = await processVideo(v);
+      if (decision) {
+        commitDecision(v, decision);
+        state.index += 1;
+      }
       hideStamp();
     } finally {
       state.running = false;

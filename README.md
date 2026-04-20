@@ -1,135 +1,106 @@
-# Social Media Audit Pipeline — Web Demo Dashboard
+# Social Media Audit Pipeline — Demo Dashboard
 
-A self-contained, single-page visualization of how the **TikTok** and **YouTube** bots work, with a spotlight on the **LLM-as-decision-maker** loop. Built with vanilla HTML, CSS, and JavaScript — no build step, no dependencies beyond Google Fonts.
+A self-contained, single-page visualization of how an LLM-driven social-media audit pipeline works, with a spotlight on the **LLM-as-decision-maker** loop. Built with vanilla HTML, CSS, and JavaScript — no build step, no dependencies beyond Google Fonts.
 
-Everything is **fully simulated**: no real browser automation runs, no cookies are used, no API calls are made. The goal is a reliable, presentable walkthrough that always plays perfectly in front of an audience.
+## Run locally
 
----
+Just open `demo/index.html` in a modern browser, or serve the folder with any static server:
 
-## Run it
+```bash
+# Python
+python -m http.server 8000 -d demo
 
-Either option works. Pick the one you prefer.
-
-### Option 1 — Double-click
-
-Open `demo/index.html` in Chrome, Edge, or Firefox.
-
-### Option 2 — Local static server (recommended for best font loading)
-
-```powershell
-cd demo
-python -m http.server 8000
+# Node
+npx serve demo
 ```
 
-Then open <http://localhost:8000>.
+Then visit `http://localhost:8000`.
 
----
+## What you see
 
-## What you're looking at
+**Top bar** — platform toggle (`tiktok` ↔ `youtube`), scenario dropdown, persona (`interested` / `not_interested`), playback speed (0.5× / 1× / 2× / 4×), and transport controls (Play / Step / Reset).
 
-```
-+---------------------------------------------------------------+
-| Top bar  : platform switch · scenario · persona · speed · play|
-+---------------------------------------------------------------+
-| Browser  |  Pipeline      |  LLM Brain Panel                  |
-| Mockup   |  Stepper       |  Prompt / Response / Decision     |
-| (feed)   |  (6 steps)     |                                   |
-+---------------------------------------------------------------+
-| Stats tiles | Decision bars | Controller log (terminal-style) |
-+---------------------------------------------------------------+
-```
+**Browser panel (left)** — a stylised browser mockup showing the current feed. Videos scroll into view; during the initial watch window a camera flash fires, a paper plane carries a screenshot toward the LLM, and a decision stamp lands on the active video.
 
-**Browser mockup (left)** — a fake Chrome window showing a stylized TikTok For You feed or YouTube Shorts feed. It scrolls to the next video, flashes a "screenshot", sends a paper-plane animation towards the LLM panel, and stamps the final decision on top of the current video.
+**Pipeline stepper (middle)** — the six stages of processing one video:
 
-**Pipeline stepper (middle)** — the six stages:
+1. **Navigate / Scroll** — move to the next video.
+2. **Initial Watch** — e.g. 8 seconds. **Screenshot, LLM call, and decision all happen in parallel during this window.**
+3. **Capture Screenshot** (parallel with step 2).
+4. **Send to Vision LLM** (parallel with step 2).
+5. **Decision** — for tiktok, classify mental-health relevance; for youtube, just describe.
+6. **Execute** — additional watch (+25s) or a short skip (~0.5s) for tiktok; fixed watch window for youtube.
 
-1. Navigate / Scroll
-2. Initial Watch (8 s window)
-3. Capture Screenshot
-4. Send to GPT-4o-mini
-5. LLM Decision
-6. Watch Full (+25 s) or Skip (0.5 s)
+**LLM panel (right)** — three tabs:
 
-Each step lights up in sequence with a neon outline as the current video progresses.
+- **Prompt** — a condensed version of the real vision-analysis prompt, typed out character-by-character.
+- **Response** — a streamed JSON object populated key by key, simulating an LLM completion.
+- **Decision** — the resolved outcome with a colored badge, classification metadata, and the decision rule as pseudocode.
 
-**LLM brain panel (right)** — three tabs:
-
-- **Prompt** — a condensed TikTok analysis prompt, typed out character-by-character.
-- **Response** — the JSON returned by the model, streamed key-by-key (creator_username → caption → hashtags → possible_mental_health_relevance → …).
-- **Decision** — a big coloured badge: **WATCH_FULL**, **SKIP**, **SKIP_MH**, or **WATCH_NON_MH**, plus the rationale and the actual decision rule quoted from the source.
-
-**Bottom dock** — session stats (videos processed, MH-relevant count, avg watch time, skip rate), a live bar chart of decisions, and a scrolling controller log that mirrors the real `print()` lines emitted by the launchers.
-
----
+**Bottom dock** — live stats, a decision-breakdown bar chart, and a timestamped activity log.
 
 ## Suggested presentation flow
 
-This tells the project's headline story in about 3 minutes.
+### 1. Start on **tiktok** / depression_loneliness / persona = **interested**
 
-### 1. Start on **TikTok** / **depression_loneliness** / persona = **interested**
+Press **Play** and let the first few videos run. Call out:
 
-Press **Play** at **2×**. Point out:
+- The LLM receives the screenshot **while** the initial watch timer is still ticking — it's concurrent, not sequential.
+- After the 8-second window, if the LLM flagged mental-health content and the persona is "interested", the bot invests an **additional +25s** of watch time. If not, it skips in ~0.5s.
 
-- The bot scrolls to each video (left panel).
-- After the 8-second initial watch, a screenshot is captured and the paper plane flies towards the LLM panel.
-- The LLM streams back structured JSON with a **`possible_mental_health_relevance`** field.
-- Because the persona is `interested`, mental-health videos get `WATCH_FULL (+25s)`. Non-MH videos get `SKIP`.
-- Stats climb on the bottom dock.
+### 2. Mid-run, flip persona to **not_interested**
 
-### 2. Flip the persona to **not_interested**
+Watch the decision labels invert. Mental-health content now gets `SKIP_MH` while non-mental-health content gets `WATCH_NON_MH`. Same prompt, same screenshots — the LLM output is interpreted differently based on persona.
 
-While playing. The exact same videos now get `SKIP_MH` or `WATCH_NON_MH`. This is the key insight: **the LLM's job is to tell the bot how to act like the scripted persona, not to judge the content.**
+### 3. Switch scenario to **neutral**
 
-### 3. Switch scenario to **just_for_you** (mixed feed)
+Point out that mental-health relevance drops and skip-rate climbs — confirming the classifier discriminates correctly.
 
-Show the algorithm reacting to a realistic mix. Watch decision counts diverge on the bar chart.
+### 4. Switch top toggle to **youtube**
 
-### 4. Switch top toggle to **YouTube**
+Key contrast:
 
-- Theme shifts from cyan/pink to YouTube red.
-- Persona selector disappears.
-- LLM panel now shows a description-only prompt and response.
-- Decision step becomes "Describe Content" — there is no watch/skip branching.
-- This is the core comparison: **TikTok uses the LLM as a decision maker, YouTube uses it purely as a metadata describer.**
+- The pipeline still runs, but the decision step is **description-only**.
+- Watch duration is a fixed window (no +25s / −0.5s branching).
+- **This is the core comparison:** tiktok uses the LLM as a decision maker, youtube uses it purely as a metadata describer.
 
----
+### 5. Hit Reset, bump speed to 4× (or 0.5×)
 
-## Keyboard / control reference
+Run a full scenario through and finish on the cumulative stats: total videos, mental-health hits, average watch, skip rate, and the decision-breakdown bars.
 
-| Control | Effect |
-|---|---|
-| Play / Pause | Start or stop the scripted session |
-| Step | Advance exactly one video (useful for freezing a frame during Q&A) |
-| Reset | Start the current scenario over, clear stats |
-| 1× / 2× / 4× | Playback speed |
-| Platform switch | TikTok ↔ YouTube |
-| Scenario dropdown | Load a different scripted feed |
-| Persona dropdown | Flip the decision polarity (TikTok only) |
+## Controls cheat sheet
 
----
+| Control          | Effect                                              |
+| ---------------- | --------------------------------------------------- |
+| Platform switch  | tiktok ↔ youtube                                    |
+| Scenario select  | different feed lists                                |
+| Persona select   | interested ↔ not_interested (tiktok only)           |
+| Speed buttons    | 0.5× / 1× / 2× / 4× (scales all timers)             |
+| Play / Pause     | run the main loop                                   |
+| Step             | process exactly one video                           |
+| Reset            | clear counts, rewind to the first video             |
 
-## File structure
+## Accessibility & performance
+
+- All animations use CSS transforms and opacity — no heavy JS rendering.
+- Color-coded decision badges also show text labels for screen readers.
+- Focus states are preserved on all interactive elements.
+- No network calls — safe to run offline.
+
+## Tech
+
+- Vanilla JavaScript state machine (`DemoEngine` in `app.js`).
+- Scripted scenarios + condensed prompts (`data.js`).
+- CSS variables for theming; no preprocessor.
+- Google Fonts (Inter, JetBrains Mono) loaded once.
+
+## Files
 
 ```
 demo/
-├── index.html     single-page UI
-├── styles.css     dark theme + animations
-├── app.js         DemoEngine state machine
-├── data.js        scripted scenarios + real prompts
-└── README.md      this file
+├── index.html   # layout and static chrome
+├── styles.css   # theme, animations, layout
+├── app.js       # state machine + UI logic
+├── data.js      # scenarios, videos, prompts
+└── README.md    # this file
 ```
-
-## Notes on accuracy
-
-The scripted videos, LLM JSON responses, and decision logic are designed to mirror the real project behavior:
-
-- The six-step flow and persona branches match the intended TikTok behavior.
-- The prompt and response format align with the intended structured metadata output.
-- The scenario sets represent the same thematic buckets used in the original study setup.
-- The YouTube mode remains description-first with fixed watch timing behavior.
-
-## Possible follow-ups
-
-- Replay real past-run data from `experiment_results/logs/` instead of scripted content.
-- Add the Mobile (Appium) pipelines as a third and fourth platform.
-- Connect a live OpenAI key so the Response tab streams actual model output.
