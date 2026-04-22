@@ -65,14 +65,31 @@
   };
 
   /* ========== time helpers ========== */
-  // Everything accepts a logical (1x) milliseconds and we divide by state.speed
+  // Everything accepts a logical (1x) milliseconds and we divide by state.speed.
+  // Polls every 50ms so pause/resume takes effect within one tick.
   const wait = (ms) =>
     new Promise((resolve) => {
-      const id = setTimeout(resolve, ms / state.speed);
-      state.cancelFns.push(() => {
-        clearTimeout(id);
-        resolve();
-      });
+      if (!state.running) { resolve(); return; }
+
+      let remaining = ms / state.speed; // real-time ms to spend (excluding paused time)
+      let lastTick = Date.now();
+      let timerId = null;
+      let cancelled = false;
+
+      const cancel = () => { cancelled = true; clearTimeout(timerId); resolve(); };
+      state.cancelFns.push(cancel);
+
+      const tick = () => {
+        if (cancelled || !state.running) { resolve(); return; }
+        const now = Date.now();
+        if (!state.paused) remaining -= (now - lastTick);
+        lastTick = now;
+        if (remaining <= 0) { resolve(); return; }
+        // Use remaining for precision; cap at 50ms so pause detection stays responsive
+        timerId = setTimeout(tick, Math.min(50, remaining));
+      };
+
+      timerId = setTimeout(tick, Math.min(50, remaining));
     });
 
   const clearTimers = () => {
@@ -447,17 +464,18 @@ watch_duration = random.uniform(8, 12)`;
     const timer = $("#watchTimer");
     const text = $("#watchTimerText");
     timer.classList.add("visible");
-    const start = Date.now();
-    const totalMs = durationSec * 1000; // logical
+    const totalLogicalMs = durationSec * 1000;
+    let logicalElapsedMs = 0;
 
-    while (true) {
-      const elapsedLogical = (Date.now() - start) * state.speed;
-      const remainingLogical = totalMs - elapsedLogical;
-      const shownSec = Math.min(durationSec, elapsedLogical / 1000);
+    while (state.running) {
+      const remainingLogical = totalLogicalMs - logicalElapsedMs;
+      const shownSec = Math.min(durationSec, logicalElapsedMs / 1000);
       text.textContent = shownSec.toFixed(1) + "s";
       if (onTickText) onTickText(shownSec);
       if (remainingLogical <= 0) break;
-      await wait(Math.min(200, remainingLogical));
+      const tickLogical = Math.min(200, remainingLogical);
+      await wait(tickLogical); // wait() only counts down while not paused
+      logicalElapsedMs += tickLogical;
     }
     text.textContent = durationSec.toFixed(1) + "s";
   }
@@ -491,14 +509,16 @@ watch_duration = random.uniform(8, 12)`;
 
     setStep(-1);
     hideWatchTimer();
-    $("#sessionStatusTag").textContent = state.index >= state.videos.length ? "● complete" : "● paused";
-    $("#sessionStatusTag").classList.remove("running");
-    $("#browserHint").textContent = state.index >= state.videos.length ? "session complete" : "paused";
     state.running = false;
-    state.paused = true;
+    state.paused = false;
     setPlayButton(false);
 
-    if (state.index >= state.videos.length) {
+    const completed = state.index >= state.videos.length;
+    $("#sessionStatusTag").textContent = completed ? "● complete" : "● idle";
+    $("#sessionStatusTag").classList.remove("running");
+    $("#browserHint").textContent = completed ? "session complete" : "waiting to start…";
+
+    if (completed) {
       log("success", `Session complete — processed ${state.videos.length} videos`);
     }
   }
@@ -676,6 +696,9 @@ watch_duration = random.uniform(8, 12)`;
     if (running) {
       lbl.textContent = "Pause";
       icon.setAttribute("d", "M5 4 L9 4 L9 16 L5 16 Z M11 4 L15 4 L15 16 L11 16 Z");
+    } else if (state.running && state.paused) {
+      lbl.textContent = "Resume";
+      icon.setAttribute("d", "M5 3 L16 10 L5 17 Z");
     } else {
       lbl.textContent = state.index >= state.videos.length ? "Restart" : "Play";
       icon.setAttribute("d", "M5 3 L16 10 L5 17 Z");
@@ -685,7 +708,7 @@ watch_duration = random.uniform(8, 12)`;
   function resetSession() {
     clearTimers();
     state.running = false;
-    state.paused = true;
+    state.paused = false;
     state.index = 0;
     hideStamp();
     hideWatchTimer();
@@ -711,20 +734,24 @@ watch_duration = random.uniform(8, 12)`;
   }
 
   function togglePlay() {
-    if (state.running) {
-      // pause
-      state.running = false;
-      clearTimers();
+    if (!state.running) {
+      // Start (or restart after complete)
+      if (state.index >= state.videos.length) resetSession();
+      runLoop();
+    } else if (state.paused) {
+      // Resume — just flip the flag; wait() polls detect this automatically
+      state.paused = false;
+      setPlayButton(true);
+      $("#sessionStatusTag").textContent = "● running";
+      $("#sessionStatusTag").classList.add("running");
+      $("#browserHint").textContent = `processing video ${state.index + 1}/${state.videos.length}`;
+    } else {
+      // Pause — freeze in place without stopping the async chain
       state.paused = true;
+      setPlayButton(false);
       $("#sessionStatusTag").textContent = "● paused";
       $("#sessionStatusTag").classList.remove("running");
-      $("#browserHint").textContent = "paused";
-      setPlayButton(false);
-    } else {
-      if (state.index >= state.videos.length) {
-        resetSession();
-      }
-      runLoop();
+      $("#browserHint").textContent = "paused — click Resume to continue";
     }
   }
 
@@ -754,7 +781,6 @@ watch_duration = random.uniform(8, 12)`;
     // Platform switch
     $$(".platform-btn").forEach((btn) =>
       btn.addEventListener("click", () => {
-        if (state.running) togglePlay();
         state.platform = btn.dataset.platform;
         applyPlatform();
         buildScenarioOptions();
@@ -766,7 +792,6 @@ watch_duration = random.uniform(8, 12)`;
 
     // Scenario select
     $("#scenarioSelect").addEventListener("change", (e) => {
-      if (state.running) togglePlay();
       state.scenarioId = e.target.value;
       resetSession();
       log("info", `Switched scenario → ${SCENARIOS[state.scenarioId].label}`);
