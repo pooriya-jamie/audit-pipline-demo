@@ -2,15 +2,16 @@
  * app.js — DemoEngine
  * Pure vanilla JS. Drives a 6-step pipeline animation that visualises
  * an LLM-driven social-media audit loop. All data comes from data.js.
- * No real API calls are made.
+ * No real API calls are made. All timings honour playback speed.
  * ================================================================ */
 
 (function () {
   "use strict";
 
   /* ========== DOM helpers ========== */
-  const $ = (sel) => document.querySelector(sel);
-  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+  // Both helpers accept an optional root node so lookups can be scoped.
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
   const el = (tag, props = {}, ...children) => {
     const node = document.createElement(tag);
     Object.entries(props).forEach(([k, v]) => {
@@ -129,21 +130,32 @@
     state.scenarioId = sel.value;
   }
 
+  // Steps 2–4 (screenshot, LLM, decision) run concurrently with the
+  // Initial Watch window — mark them so the UI can group them visually.
+  const PARALLEL_STEP_IDS = new Set(["screenshot", "llm", "decision"]);
+
   function buildStepper() {
     const stepper = $("#stepper");
     stepper.innerHTML = "";
     cfg().steps.forEach((step, idx) => {
-      const node = el("li", { class: "step", dataset: { step: step.id, idx } },
+      const isParallel = PARALLEL_STEP_IDS.has(step.id);
+      const label = el("div", { class: "step-label" }, step.label);
+      if (isParallel) {
+        label.appendChild(el("span", { class: "parallel-tag", title: "Runs concurrently with the initial watch window" }, "∥ parallel"));
+      }
+      const node = el("li", { class: `step${isParallel ? " step-parallel" : ""}`, dataset: { step: step.id, idx } },
         el("div", { class: "step-icon", html: ICONS[step.icon] || ICONS.clock }),
         el("div", { class: "step-body" },
-          el("div", { class: "step-label" }, step.label),
-          el("div", { class: "step-sub" }, stepSub(step.id))
+          label,
+          el("div", { class: "step-sub" }, stepSub(step.id)),
+          el("div", { class: "step-progress", "aria-hidden": "true" },
+            el("div", { class: "step-progress-fill" })
+          )
         ),
         el("div", { class: "step-status" }, "idle")
       );
       stepper.appendChild(node);
     });
-
   }
 
   function stepSub(id) {
@@ -184,8 +196,10 @@
           $(".step-status", node).textContent = "running";
         } else {
           $(".step-status", node).textContent = "idle";
+          setStepProgress(i, 0);
         }
       });
+      if (idx <= 0) $$(".step-progress-fill").forEach((f) => (f.style.width = "0%"));
     }
     state.currentStepIdx = idx;
     const stepObj = cfg().steps[idx];
@@ -198,6 +212,14 @@
     node.classList.remove("active");
     node.classList.add("done");
     $(".step-status", node).textContent = "done";
+    setStepProgress(idx, 100);
+  }
+
+  function setStepProgress(idx, pct) {
+    const node = $$(".step", $("#stepper"))[idx];
+    if (!node) return;
+    const fill = $(".step-progress-fill", node);
+    if (fill) fill.style.width = pct + "%";
   }
 
   /* ========== platform theme ========== */
@@ -346,16 +368,29 @@ watch_duration = random.uniform(8, 12)`;
 
   /* ========== stats ========== */
 
+  function setStat(sel, text) {
+    const node = $(sel);
+    if (node.textContent === text) return;
+    node.textContent = text;
+    node.classList.remove("pop");
+    void node.offsetWidth;
+    node.classList.add("pop");
+  }
+
   function updateStats() {
     const n = state.decisions.length;
-    $("#statVideos").textContent = n;
-    $("#statMH").textContent = cfg().useLLMDecision ? state.mhCount : "—";
+    setStat("#statVideos", String(n));
+    setStat("#statMH", cfg().useLLMDecision ? String(state.mhCount) : "—");
     const avg = n > 0 ? (state.totalWatchSec / n) : 0;
-    $("#statAvgWatch").textContent = avg.toFixed(1) + "s";
+    setStat("#statAvgWatch", avg.toFixed(1) + "s");
 
     const skippy = (state.counts.SKIP + state.counts.SKIP_MENTAL_HEALTH);
     const rate = n > 0 ? Math.round((skippy / n) * 100) : 0;
-    $("#statSkipRate").textContent = cfg().useLLMDecision ? rate + "%" : "n/a";
+    setStat("#statSkipRate", cfg().useLLMDecision ? rate + "%" : "n/a");
+
+    // Session progress bar
+    const total = Math.max(1, state.videos.length);
+    $("#sessionProgressFill").style.width = ((n / total) * 100) + "%";
 
     const max = Math.max(1, ...Object.values(state.counts));
     setBar("#barWatchFull", "#valWatchFull", state.counts.WATCH_FULL, max);
@@ -370,7 +405,103 @@ watch_duration = random.uniform(8, 12)`;
     $(valSel).textContent = String(value);
   }
 
-  $("#videoCounterTag");
+  /* ========== decision timeline ========== */
+
+  function addTimelineChip(record) {
+    const empty = $("#timelineEmpty");
+    if (empty) empty.remove();
+    const { v, decision, index } = record;
+    const chip = el("button", {
+      class: `chip chip-${decision.badgeClass}`,
+      title: `#${index + 1} ${v.username} — ${decision.label} (${decision.watchSec.toFixed(1)}s)`,
+      "aria-label": `Video ${index + 1}: ${v.username}, decision ${decision.label}`,
+      onclick: () => inspectRecord(record),
+    },
+      el("span", { class: "chip-idx" }, String(index + 1)),
+      el("span", { class: "chip-label" }, decision.label)
+    );
+    $("#timeline").appendChild(chip);
+    if (typeof chip.scrollIntoView === "function") {
+      chip.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "end" });
+    }
+  }
+
+  function clearTimeline() {
+    const tl = $("#timeline");
+    tl.innerHTML = "";
+    tl.appendChild(el("span", { class: "timeline-empty", id: "timelineEmpty" },
+      "No videos processed yet — press Play or hit Space."));
+  }
+
+  // Re-populate the LLM panel with a past record (timeline chip click).
+  function inspectRecord(record) {
+    if (state.running && !state.paused) return; // don't fight the live run
+    const { v, decision } = record;
+    const llmObj = v.llm || {};
+    // Response tab: render instantly, no streaming
+    const respNode = $("#responseCode");
+    respNode.innerHTML = "";
+    respNode.insertAdjacentHTML("beforeend", `<span class="p">{</span>\n`);
+    const entries = Object.entries(llmObj);
+    entries.forEach(([k, val], i) => {
+      respNode.insertAdjacentHTML("beforeend",
+        `  <span class="k">"${escapeHtml(k)}"</span><span class="p">:</span> ${renderJsonValue(val)}${i < entries.length - 1 ? `<span class="p">,</span>` : ""}\n`);
+    });
+    respNode.insertAdjacentHTML("beforeend", `<span class="p">}</span>`);
+    $("#responseStatusChip").textContent = `replay · video #${record.index + 1}`;
+    // Decision tab
+    $("#decisionText").textContent = decision.label;
+    $("#decisionBadge").className = `decision-badge ${decision.badgeClass}`;
+    $("#decMHVal").textContent = cfg().useLLMDecision
+      ? (llmObj.possible_mental_health_relevance ? "true" : "false") : "n/a";
+    $("#decConfVal").textContent = llmObj.mental_health_confidence || "—";
+    $("#decPersonaVal").textContent = cfg().useLLMDecision ? record.persona : "n/a";
+    $("#decActionVal").textContent = decision.action;
+    $("#decReasoning").textContent = v.reasoning || "—";
+    showLLMTab("decision");
+    log("info", `Inspecting video #${record.index + 1} (${v.username}) — ${decision.label}`);
+  }
+
+  /* ========== export ========== */
+
+  function exportSession() {
+    if (state.decisions.length === 0) {
+      log("info", "Nothing to export yet — run the session first.");
+      return;
+    }
+    const scen = SCENARIOS[state.scenarioId] || {};
+    const payload = {
+      exported_at: new Date().toISOString(),
+      platform: state.platform,
+      scenario: state.scenarioId,
+      scenario_label: scen.label || state.scenarioId,
+      persona: cfg().useLLMDecision ? state.persona : null,
+      totals: {
+        videos_processed: state.decisions.length,
+        mental_health_relevant: cfg().useLLMDecision ? state.mhCount : null,
+        avg_watch_sec: state.decisions.length ? +(state.totalWatchSec / state.decisions.length).toFixed(2) : 0,
+        counts: { ...state.counts },
+      },
+      decisions: state.decisions.map((r) => ({
+        index: r.index + 1,
+        username: r.v.username,
+        caption: r.v.caption,
+        hashtags: r.v.hashtags,
+        persona: r.persona,
+        mental_health_relevant: !!(r.v.llm && r.v.llm.possible_mental_health_relevance),
+        decision: r.decision.key,
+        watch_sec: r.decision.watchSec,
+      })),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = el("a", { href: url, download: `audit_session_${state.platform}_${state.scenarioId}.json` });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    log("success", `Exported ${payload.decisions.length} decisions → ${a.download}`);
+  }
 
   /* ========== LLM panel animations ========== */
 
@@ -544,7 +675,8 @@ watch_duration = random.uniform(8, 12)`;
       ? `Initial watch window opened (${c.initialWatch}s) — screenshot + LLM + decision run in parallel`
       : `Short loaded — capturing screenshot while fixed watch timer runs`);
 
-    const initialWatchPromise = runWatchTimer(c.initialWatch, null);
+    const initialWatchPromise = runWatchTimer(c.initialWatch,
+      (s) => setStepProgress(1, Math.min(100, (s / c.initialWatch) * 100)));
 
     // Run screenshot → LLM → decision CONCURRENTLY with the initial watch.
     // We pass parallel:true so these don't demote the Initial Watch step.
@@ -672,19 +804,22 @@ watch_duration = random.uniform(8, 12)`;
     // Cap long watches at 10s so the visual difference between
     // WATCH_FULL (+25s real) and SKIP (+0.5s real) is obvious.
     const shownSec = Math.max(0.6, Math.min(extraSec, 10));
-    await runWatchTimer(shownSec);
+    await runWatchTimer(shownSec,
+      (s) => setStepProgress(5, Math.min(100, (s / shownSec) * 100)));
   }
 
   function commitDecision(v, decision) {
     const c = cfg();
     const watchSec = decision.watchSec;
     state.totalWatchSec += watchSec;
-    state.decisions.push({ v, decision });
+    const record = { v, decision, index: state.index, persona: state.persona };
+    state.decisions.push(record);
     state.counts[decision.key] = (state.counts[decision.key] || 0) + 1;
 
     if (c.useLLMDecision && v.llm.possible_mental_health_relevance) state.mhCount += 1;
     if (!c.useLLMDecision) state.mhCount = 0; // n/a
 
+    addTimelineChip(record);
     updateStats();
   }
 
@@ -726,6 +861,7 @@ watch_duration = random.uniform(8, 12)`;
     $("#decActionVal").textContent = "—";
     $("#decReasoning").textContent = "Decision rationale will appear here after classification.";
     showLLMTab("prompt");
+    clearTimeline();
     loadScenario();
     setPlayButton(false);
     $("#sessionStatusTag").textContent = "● idle";
@@ -805,25 +941,63 @@ watch_duration = random.uniform(8, 12)`;
 
     // Speed buttons
     $$(".speed-btn").forEach((btn) =>
-      btn.addEventListener("click", () => {
-        $$(".speed-btn").forEach((b) => b.classList.remove("active"));
-        btn.classList.add("active");
-        state.speed = Number(btn.dataset.speed) || 1;
-      })
+      btn.addEventListener("click", () => setSpeed(Number(btn.dataset.speed) || 1))
     );
 
-    // Play, Step, Reset
+    // Play, Step, Reset, Export, Clear log
     $("#playBtn").addEventListener("click", togglePlay);
     $("#stepBtn").addEventListener("click", stepOnce);
     $("#resetBtn").addEventListener("click", () => {
       log("info", "Session reset");
       resetSession();
     });
+    $("#exportBtn").addEventListener("click", exportSession);
+    $("#clearLogBtn").addEventListener("click", () => { logEl.innerHTML = ""; });
 
     // LLM tabs
     $$(".llm-tab").forEach((t) =>
       t.addEventListener("click", () => showLLMTab(t.dataset.llmTab))
     );
+
+    // Keyboard shortcuts
+    document.addEventListener("keydown", onKeydown);
+  }
+
+  function setSpeed(mult) {
+    state.speed = mult;
+    $$(".speed-btn").forEach((b) => {
+      const on = Number(b.dataset.speed) === mult;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  }
+
+  const SPEED_KEYS = { "1": 0.5, "2": 1, "3": 2, "4": 4 };
+
+  function onKeydown(e) {
+    // Don't hijack keys while user is in a form control
+    const t = e.target;
+    if (t && (t.tagName === "SELECT" || t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+    const key = e.key.toLowerCase();
+    if (key === " ") {
+      e.preventDefault(); // avoid page scroll / re-triggering focused button
+      togglePlay();
+    } else if (key === "s") {
+      stepOnce();
+    } else if (key === "r") {
+      log("info", "Session reset");
+      resetSession();
+    } else if (key === "e") {
+      exportSession();
+    } else if (key === "p" && cfg().useLLMDecision) {
+      const sel = $("#personaSelect");
+      sel.value = sel.value === "interested" ? "not_interested" : "interested";
+      sel.dispatchEvent(new Event("change"));
+    } else if (SPEED_KEYS[key]) {
+      setSpeed(SPEED_KEYS[key]);
+    }
   }
 
   /* ========== boot ========== */
@@ -835,8 +1009,10 @@ watch_duration = random.uniform(8, 12)`;
     loadScenario();
     setStep(-1);
     wireUI();
-    log("info", "Demo initialised. Press Play to start the session.");
-    log("info", "Tip: switch persona mid-demo to watch the decision flip in real time.");
+    setSpeed(state.speed);
+    log("info", "Demo initialised. Press Play (or Space) to start the session.");
+    log("info", "Tip: switch persona mid-demo (or press P) to watch the decision flip in real time.");
+    log("info", "Shortcuts: Space play/pause · S step · R reset · E export · 1-4 speed");
   }
 
   document.addEventListener("DOMContentLoaded", init);

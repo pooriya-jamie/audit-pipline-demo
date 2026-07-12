@@ -2,7 +2,7 @@
 <html lang="en" data-platform="tiktok">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=1440" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Social Media Audit Pipeline — LLM-Driven Demo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -60,24 +60,33 @@
       </label>
 
       <div class="speed-group" role="group" aria-label="Playback speed">
-        <button class="speed-btn" data-speed="0.5">0.5×</button>
-        <button class="speed-btn" data-speed="1">1×</button>
-        <button class="speed-btn active" data-speed="2">2×</button>
-        <button class="speed-btn" data-speed="4">4×</button>
+        <button class="speed-btn" data-speed="0.5" aria-pressed="false" title="0.5× speed (press 1)">0.5×</button>
+        <button class="speed-btn" data-speed="1" aria-pressed="false" title="1× speed (press 2)">1×</button>
+        <button class="speed-btn active" data-speed="2" aria-pressed="true" title="2× speed (press 3)">2×</button>
+        <button class="speed-btn" data-speed="4" aria-pressed="false" title="4× speed (press 4)">4×</button>
       </div>
 
-      <button class="btn-primary" id="playBtn">
+      <button class="btn-primary" id="playBtn" title="Play / Pause (Space)">
         <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><path id="playIcon" d="M5 3 L16 10 L5 17 Z" fill="currentColor"/></svg>
         <span id="playLabel">Play</span>
       </button>
-      <button class="btn-ghost" id="stepBtn" title="Advance one video">
+      <button class="btn-ghost" id="stepBtn" title="Advance one video (S)">
         <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><path d="M4 3 L12 10 L4 17 Z M13 3 L15 3 L15 17 L13 17 Z" fill="currentColor"/></svg>
         Step
       </button>
-      <button class="btn-ghost" id="resetBtn" title="Reset session">
+      <button class="btn-ghost" id="resetBtn" title="Reset session (R)">
         <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><path d="M10 3 A7 7 0 1 1 3.5 7.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M3 3 L3 8 L8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Reset
       </button>
+      <button class="btn-ghost" id="exportBtn" title="Export session results (E)">
+        <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><path d="M10 3 L10 13 M6 9 L10 13 L14 9 M4 16 L16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Export
+      </button>
+    </div>
+
+    <!-- Session progress -->
+    <div class="session-progress" aria-hidden="true">
+      <div class="session-progress-fill" id="sessionProgressFill"></div>
     </div>
   </header>
 
@@ -249,6 +258,17 @@
     </section>
   </main>
 
+  <!-- ============================== DECISION TIMELINE ============================== -->
+  <section class="timeline-strip" aria-label="Decision timeline">
+    <div class="timeline-head">
+      <span class="dock-title timeline-title">Decision timeline</span>
+      <span class="muted" id="timelineHint">each chip = one processed video · click to inspect</span>
+    </div>
+    <div class="timeline" id="timeline">
+      <span class="timeline-empty" id="timelineEmpty">No videos processed yet — press Play or hit Space.</span>
+    </div>
+  </section>
+
   <!-- ============================== BOTTOM DOCK ============================== -->
   <section class="dock">
 
@@ -303,12 +323,25 @@
     <div class="dock-col log-col">
       <div class="dock-title">
         <span>Controller log</span>
-        <span class="muted log-path">experiment_results/logs/controller.log</span>
+        <span class="log-tools">
+          <span class="muted log-path">experiment_results/logs/controller.log</span>
+          <button class="log-btn" id="clearLogBtn" title="Clear log">clear</button>
+        </span>
       </div>
       <div class="log" id="log" aria-live="polite"></div>
     </div>
 
   </section>
+
+  <!-- ============================== FOOTER / SHORTCUTS ============================== -->
+  <footer class="app-footer">
+    <span class="shortcut"><kbd>Space</kbd> play / pause</span>
+    <span class="shortcut"><kbd>S</kbd> step</span>
+    <span class="shortcut"><kbd>R</kbd> reset</span>
+    <span class="shortcut"><kbd>E</kbd> export</span>
+    <span class="shortcut"><kbd>1</kbd>–<kbd>4</kbd> speed</span>
+    <span class="shortcut"><kbd>P</kbd> flip persona</span>
+  </footer>
 
   <!-- ============================== SCRIPTS ============================== -->
   <script src="data.js"></script>

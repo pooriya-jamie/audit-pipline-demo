@@ -16,8 +16,8 @@
 
   --text-0: #ffffff;
   --text-1: #e8e8f3;
-  --text-2: #9e9eb8;
-  --text-3: #666684;
+  --text-2: #a6a6c0;
+  --text-3: #7d7d9e; /* lightened for WCAG contrast on dark surfaces */
 
   /* Platform accents (change based on data-platform attr) */
   --accent-tiktok-a: #25f4ee;
@@ -84,6 +84,18 @@ button {
   border: none;
   background: none;
   color: inherit;
+  touch-action: manipulation;
+}
+button:active { transform: scale(0.97); }
+
+/* Respect users who prefer less motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 button:focus-visible,
@@ -218,6 +230,23 @@ pre, code, .mono { font-family: var(--font-mono); }
   border: 1px solid var(--border-1);
 }
 .btn-ghost:hover { border-color: var(--accent-a); color: var(--accent-a); }
+
+/* Session progress bar (bottom edge of topbar) */
+.session-progress {
+  position: absolute;
+  left: 0; right: 0; bottom: -1px;
+  height: 2px;
+  background: transparent;
+  overflow: hidden;
+  pointer-events: none;
+}
+.session-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+  box-shadow: 0 0 12px var(--accent-a);
+  transition: width 450ms cubic-bezier(.3, 1, .4, 1);
+}
 
 /* ============================================================
    Main grid
@@ -506,6 +535,7 @@ pre, code, .mono { font-family: var(--font-mono); }
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 999px;
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 12px;
   color: #fff;
   z-index: 4;
@@ -660,6 +690,48 @@ pre, code, .mono { font-family: var(--font-mono); }
   margin-top: 3px;
   font-family: var(--font-mono);
 }
+
+/* Steps that run concurrently with the initial watch window */
+.step-parallel {
+  margin-left: 14px;
+  border-left: 2px solid var(--border-2);
+}
+.step-parallel.active { border-left-color: var(--accent-a); }
+.parallel-tag {
+  margin-left: 8px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--accent-a);
+  background: rgba(37,244,238,0.08);
+  border: 1px solid rgba(37,244,238,0.25);
+  border-radius: 999px;
+  padding: 1px 7px;
+  vertical-align: middle;
+}
+[data-platform="youtube"] .parallel-tag {
+  background: rgba(255,85,85,0.08);
+  border-color: rgba(255,85,85,0.25);
+}
+
+/* Per-step progress bar (fills during timed steps) */
+.step-progress {
+  height: 3px;
+  margin-top: 7px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.06);
+  overflow: hidden;
+}
+.step-progress-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+  transition: width 180ms linear;
+}
+.step.done .step-progress-fill { background: var(--success); }
 .step-status {
   font-size: 10.5px;
   font-family: var(--font-mono);
@@ -929,6 +1001,74 @@ pre, code, .mono { font-family: var(--font-mono); }
 }
 
 /* ============================================================
+   Decision timeline strip
+   ============================================================ */
+.timeline-strip {
+  margin: 0 var(--grid-gap) var(--grid-gap);
+  padding: 12px 18px 14px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-lg);
+}
+.timeline-head {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.timeline-title { margin-bottom: 0; }
+.timeline {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+  min-height: 34px;
+  align-items: center;
+}
+.timeline-empty {
+  font-size: 12px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+}
+.chip {
+  flex: none;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 10px 5px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border-2);
+  background: var(--bg-0);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: var(--text-2);
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+  animation: chipIn 300ms cubic-bezier(.2,.9,.3,1.2);
+}
+.chip:hover { transform: translateY(-2px); }
+@keyframes chipIn {
+  from { opacity: 0; transform: translateY(6px) scale(0.85); }
+  to   { opacity: 1; transform: translateY(0)  scale(1); }
+}
+.chip-idx {
+  display: inline-grid; place-items: center;
+  min-width: 20px; height: 20px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--text-2);
+  font-size: 10px;
+}
+.chip-watch-full { color: var(--success); border-color: rgba(61,213,152,0.45); }
+.chip-watch-full:hover { box-shadow: 0 4px 14px -6px var(--success); }
+.chip-skip       { color: var(--warning); border-color: rgba(255,181,71,0.45); }
+.chip-skip:hover { box-shadow: 0 4px 14px -6px var(--warning); }
+.chip-skip-mh    { color: var(--danger); border-color: rgba(255,91,125,0.45); }
+.chip-skip-mh:hover { box-shadow: 0 4px 14px -6px var(--danger); }
+.chip-watch-nm   { color: var(--info); border-color: rgba(91,184,255,0.45); }
+.chip-watch-nm:hover { box-shadow: 0 4px 14px -6px var(--info); }
+
+/* ============================================================
    Dock (bottom)
    ============================================================ */
 .dock {
@@ -955,6 +1095,19 @@ pre, code, .mono { font-family: var(--font-mono); }
   margin-bottom: 12px;
 }
 .log-path { text-transform: none; letter-spacing: normal; font-family: var(--font-mono); font-size: 10.5px; }
+.log-tools { display: inline-flex; align-items: center; gap: 10px; }
+.log-btn {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-3);
+  border: 1px solid var(--border-2);
+  border-radius: 4px;
+  padding: 3px 8px;
+  transition: all 150ms ease;
+}
+.log-btn:hover { color: var(--accent-a); border-color: var(--accent-a); }
 
 /* Stats */
 .stats-grid {
@@ -981,11 +1134,18 @@ pre, code, .mono { font-family: var(--font-mono); }
 }
 .stat-val {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 28px;
   font-weight: 700;
   color: var(--text-0);
   letter-spacing: -0.5px;
   line-height: 1;
+}
+.stat-val.pop { animation: statPop 350ms cubic-bezier(.2,.9,.3,1.4); }
+@keyframes statPop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.12); color: var(--accent-a); }
+  100% { transform: scale(1); }
 }
 .stat-label {
   font-size: 11px;
@@ -1054,6 +1214,32 @@ pre, code, .mono { font-family: var(--font-mono); }
 .log-line.navigate { color: var(--info); }
 
 /* ============================================================
+   Footer / keyboard shortcuts
+   ============================================================ */
+.app-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 22px;
+  padding: 6px var(--grid-gap) 16px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+.shortcut { display: inline-flex; align-items: center; gap: 6px; }
+kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: 2px 6px;
+  min-width: 14px;
+  text-align: center;
+}
+
+/* ============================================================
    Utilities / responsive fallbacks
    ============================================================ */
 @media (max-width: 1300px) {
@@ -1067,4 +1253,7 @@ pre, code, .mono { font-family: var(--font-mono); }
 @media (max-width: 900px) {
   .main-grid, .dock { grid-template-columns: 1fr; }
   .topbar { grid-template-columns: 1fr; gap: 12px; }
+  .platform-toggle { justify-self: start; }
+  .panel { min-height: 520px; }
+  .app-footer { display: none; } /* keyboard hints are noise on touch devices */
 }
